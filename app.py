@@ -3,11 +3,17 @@ import pickle
 import string
 from nltk.corpus import stopwords
 import nltk
-nltk.download('stopwords')
-from nltk.stem.porter import PorterStemmer
 
+
+from nltk.stem.porter import PorterStemmer
 ps = PorterStemmer()
 
+def download_nltk():
+    nltk.download('stopwords')
+    nltk.download('punkt')
+    nltk.download('punkt_tab')
+
+download_nltk()
 
 def transform_text(text):
     text = text.lower()
@@ -53,4 +59,5 @@ if st.button("Predict"):
         st.badge("🚫 Bad",  color="red")
     else:
         st.header("Not Spam")
+
         st.badge("✅ good",  color="green")
