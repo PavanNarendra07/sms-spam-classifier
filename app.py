@@ -1,63 +1,113 @@
 import streamlit as st
 import pickle
 import string
-from nltk.corpus import stopwords
 import nltk
-
-
+from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
-ps = PorterStemmer()
 
+# Page Setup
+
+st.set_page_config(page_title="Email Spam Classifier", page_icon="📩", layout="centered")
+
+# Simple Dark Theme CSS
+
+st.markdown("""
+<style>
+.stApp {
+    background-color: #0f172a;
+    color: white;
+}
+
+h1, h2, h3 {
+    color: white !important;
+}
+
+/* Button */
+.stButton button {
+    background: #2563eb !important;
+    color: white !important;
+    border-radius: 10px !important;
+    padding: 10px 18px !important;
+    font-weight: 600 !important;
+}
+.stButton button:hover {
+    background: #1d4ed8 !important;
+}
+
+/* Result Box */
+.result-box {
+    background: #111827;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 15px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# NLTK setup (avoid re-download)
+
+@st.cache_resource
 def download_nltk():
-    nltk.download('stopwords')
-    nltk.download('punkt')
-    nltk.download('punkt_tab')
+    nltk.download("stopwords")
+    nltk.download("punkt")
 
 download_nltk()
 
+ps = PorterStemmer()
+
+# Text preprocessing
+
 def transform_text(text):
     text = text.lower()
-    text = nltk.word_tokenize(text)
+    tokens = nltk.word_tokenize(text)
 
-    y = []
-    for i in text:
-        if i.isalnum():
-            y.append(i)
+    # Keep only alphanumeric
+    tokens = [t for t in tokens if t.isalnum()]
 
-    text = y[:]
-    y.clear()
+    # Remove stopwords + punctuation
+    tokens = [t for t in tokens if t not in stopwords.words("english")]
 
-    for i in text:
-        if i not in stopwords.words('english') and i not in string.punctuation:
-            y.append(i)
+    # Stemming
+    tokens = [ps.stem(t) for t in tokens]
 
-    text = y[:]
-    y.clear()
+    return " ".join(tokens)
 
-    for i in text:
-        y.append(ps.stem(i))
+# Load model + vectorizer
 
-    return " ".join(y)
+tfidf = pickle.load(open("vectorizer.pkl", "rb"))
+model = pickle.load(open("model.pkl", "rb"))
 
-tfidf = pickle.load(open('vectorizer.pkl', 'rb'))
-model = pickle.load(open('model.pkl', 'rb'))
+# UI
 
-st.title("Email/SMS Spam CLassifier")
+st.title("📩 Email Spam Classifier")
 
-input_sms = st.text_area("Enter the message")
+st.markdown("### ✍️ Enter Email Text")
+input_sms = st.text_area(
+    "",
+    height=150,
+    placeholder="Paste your email message here...",
+    label_visibility="collapsed"
+)
 
-if st.button("Predict"):
-    #1.Preprocess
-    transformed_sms = transform_text(input_sms)
-    #2.Vectorize
-    vector_input = tfidf.transform([transformed_sms])
-    #3.Predict
-    result = model.predict(vector_input)[0]
-    #4.Display
-    if result == 1:
-        st.header("Spam")
-        st.badge("🚫 Bad",  color="red")
+predict = st.button("Predict Spam / Not Spam")
+
+# Prediction (ONLY on button click)
+
+if predict:
+    if input_sms.strip() == "":
+        st.warning("Please enter email text.")
     else:
-        st.header("Not Spam")
+        transformed = transform_text(input_sms)
+        vector_input = tfidf.transform([transformed])
+        result = model.predict(vector_input)[0]
 
-        st.badge("✅ good",  color="green")
+
+        st.subheader("Result")
+
+        if result == 1:
+            st.error("🚨 SPAM EMAIL")
+        else:
+            st.success("✅ NOT SPAM (SAFE)")
+
+        st.markdown("</div>", unsafe_allow_html=True)
